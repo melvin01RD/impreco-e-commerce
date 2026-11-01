@@ -17,7 +17,7 @@ test("isolated replica set enforces uniqueness, immutable snapshot and transacti
     await mongoose.connect(replica.getUri(), { dbName: "fiscal_integration" });
     await Promise.all([FiscalInvoice.init(), FiscalEvent.init(), FiscalOutbox.init()]);
     const snapshot = serializeSnapshot(fixture());
-    const input = { environment: "sandbox", issuerTaxId: "000000000", type: "E32", sourceKind: "order", sourceId: "synthetic-order", sourceReference: "TEST-001", operationKey: "sale:synthetic-order", snapshotJson: snapshot.json, snapshotHash: snapshot.hash };
+    const input = { environment: "sandbox", issuerTaxId: "000000000", type: "E32", sourceKind: "order", sourceId: "synthetic-order", sourceReference: "TEST-001", operationKey: "sale:synthetic-order", snapshotJson: snapshot.json, snapshotHash: snapshot.hash } as const;
     const concurrent = await Promise.allSettled(Array.from({ length: 6 }, () => FiscalInvoice.create(input)));
     assert.equal(concurrent.filter(result => result.status === "fulfilled").length, 1);
     assert.equal(await FiscalInvoice.countDocuments(), 1);

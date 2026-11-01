@@ -17,7 +17,7 @@ export async function prepareFiscalDraft(input: unknown, actorId: string) {
   validateSnapshotAmounts(snapshot);
   // E31/E32/E45 must not create multiple sales invoices for the same operation.
   const operationKey = `${snapshot.source.kind}:${snapshot.source.id}`;
-  const identity = { environment: "sandbox", issuerTaxId: snapshot.issuer.taxId, operationKey };
+  const identity = { environment: "sandbox" as const, issuerTaxId: snapshot.issuer.taxId, operationKey };
   const replay = async (session?: ClientSession) => {
     const query = FiscalInvoice.findOne(identity);
     if (session) query.session(session);
