@@ -34,3 +34,32 @@
 - Máquina de estados separa transmisión y dictamen; actualización optimista con auditoría atómica. Resultados desconocidos no pueden volver a cola.
 - Integración MongoDB aprobada: cuatro preparaciones simultáneas retornan un documento; un evento y una cola; conflicto de contenido; trabajador obsoleto rechazado; dos créditos concurrentes no superan el original.
 - Parcial: trabajador emisor, recuperación de leases y consulta real bloqueados por contrato. No hay cron fiscal activo. La máquina interna no afirma conocer todos los estados DGII.
+
+## IMP-FE-006
+
+- Resolución de venta E32 por defecto y E31 solo por solicitud explícita. Validadores estructurales de comprador, umbral E32 y conciliación de instantánea.
+- Pruebas de selección y validación aprobadas.
+- Pendiente: activar selección en checkout y persistir en todos los creadores web/móvil/POS/admin. Sin tipos habilitados no se ofrece una promesa fiscal al comprador ni se solicitan datos innecesarios.
+
+## IMP-FE-007
+
+- Bloqueado. `requestFiscalIssuance` rechaza emisión para todos los tipos, con evidencia de integración. No se llama al proveedor desde pagos, lectura de pedidos o descarga de PDF.
+
+## IMP-FE-008
+
+- `/admin/fiscal` e historial, tres endpoints GET con autenticación solo administrador, filtros, paginación y búsqueda exacta.
+- PDF comercial distingue número de pedido y declara que no es e-CF. El renderer existente se carga al generar el PDF; el constructor de datos puede verificarse sin inicializarlo.
+- Unitarias de datos PDF aprobadas; detalles de Playwright en `qa.md`.
+- Parcial: no hay descarga RI/XML autorizados ni botones de escritura fiscales. Requieren contrato y validación fiscal.
+
+## IMP-FE-009–013
+
+- Soporte de preparación y pruebas de orígenes/referencia/saldo documentados en `traceability.md`.
+- Las primitivas de crédito se incorporaron con IMP-FE-005 porque la reserva debe pertenecer a la misma transacción de preparación; esta dependencia justifica el adelanto de esa parte.
+- No se consideran tickets funcionales completos: faltan reglas específicas, integración con operaciones comerciales y emisión.
+
+## IMP-FE-014
+
+- Documentación técnica, fuentes, matriz, procedimientos de QA, suite Playwright Test y datos aislados.
+- Preparación de índices sin borrado mediante `scripts/prepare-fiscal-indexes.ts` (no ejecutada sobre QA).
+- Pendiente certificación Sandbox y regresión comercial integral. PR no abierto; merge/despliegue no realizados.

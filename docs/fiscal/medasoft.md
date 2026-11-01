@@ -20,7 +20,7 @@ No existe configuración ejecutable de producción en esta entrega. Los modelos 
 
 - La referencia `/api-docs` no expuso contenido legible y no había navegador conectado. Se consultaron las guías públicas, no un OpenAPI exportado/versionado.
 - La guía estructural incluye `FechaEmision` en `IdDoc` mientras el formato DGII la ubica en Emisor. Confirmar payload efectivo por tipo con fixtures del proveedor.
-- La guía dice 13 caracteres para e-NCF pero muestra ejemplos de 12 (`E310000000001`). DGII requiere E + tipo + diez dígitos. Confirmar respuestas reales; no ampliar el validador para aceptar un ejemplo contradictorio.
+- e-NCF se valida como E + tipo + diez dígitos (13 caracteres), consistente con el ejemplo `E310000000001`. Este control de estructura no demuestra autorización o disponibilidad de la secuencia.
 - El ejemplo exige un e-NCF de entrada. No se verificó quién reserva/asigna la secuencia autorizada ni su contrato concurrente.
 - Se conoce la existencia de `/reports/encf`, pero no se verificó un contrato de búsqueda inequívoca y reconciliación tras pérdida de respuesta. Nunca emitir de nuevo por timeout.
 - Pendientes: Sandbox provisionado, fixtures contractuales, credenciales de prueba, clasificación y autorización del emisor. Los mocks no constituyen certificación.
