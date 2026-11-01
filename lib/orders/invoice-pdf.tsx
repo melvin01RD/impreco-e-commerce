@@ -42,6 +42,8 @@ interface InvoiceAddress {
 
 export interface InvoiceData {
   invoiceNumber: string;
+  documentLabel?: string;
+  invoiceNumberLabel?: string;
   status: "Paid" | "Partially paid" | "Pending" | "Overdue" | "Cancelled";
   dateCreated: string;
   /** Left off the page when there is no real date to print. */
@@ -363,7 +365,7 @@ function InvoiceDocument({
       <Page size="A4" style={styles.page}>
         {/* ── Header: "Invoice" title  +  Logo ── */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Invoice</Text>
+          <Text style={styles.headerTitle}>{data.documentLabel || "Invoice"}</Text>
           <View>
             {logoDataUri ? (
               // eslint-disable-next-line jsx-a11y/alt-text -- @react-pdf/renderer's Image has no alt prop
@@ -379,7 +381,7 @@ function InvoiceDocument({
         {/* ── Invoice metadata ── */}
         <View style={styles.metaSection}>
           <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Invoice number</Text>
+            <Text style={styles.metaLabel}>{data.invoiceNumberLabel || "Invoice number"}</Text>
             <Text style={styles.metaValue}>{data.invoiceNumber}</Text>
           </View>
           <View style={styles.metaRow}>

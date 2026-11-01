@@ -1,7 +1,6 @@
 import { addDays, format } from "date-fns";
 import { DEFAULT_CURRENCY, DEFAULT_STORE_NAME } from "@/config/branding.config";
 import { PAYMENT_STATUS } from "@/config/app.config";
-import { generateInvoicePdf } from "@/lib/orders/invoice-pdf";
 import type { InvoiceData, InvoiceItem } from "@/lib/orders/invoice-pdf";
 import {
   PAY_LATER_PAYMENT_METHOD,
@@ -132,6 +131,9 @@ export function buildOrderInvoiceData(
 
   return {
     invoiceNumber: order.orderNumber,
+    documentLabel: "Commercial invoice",
+    invoiceNumberLabel: "Order number",
+    notes: "Documento comercial. No es un comprobante fiscal electrónico (e-CF).",
     status: mapOrderPaymentStatusToInvoiceStatus(order.paymentStatus),
     dateCreated: format(createdAt, "dd MMM yyyy"),
     dueDate: dueDate ? format(dueDate, "dd MMM yyyy") : undefined,
@@ -178,6 +180,7 @@ export async function generateOrderInvoicePdf(
   customerName?: string,
   customerEmail?: string,
 ) {
+  const { generateInvoicePdf } = await import("@/lib/orders/invoice-pdf");
   return generateInvoicePdf(
     buildOrderInvoiceData(order, settings, customerName, customerEmail),
   );
