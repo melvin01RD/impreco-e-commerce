@@ -4,6 +4,9 @@
   "private": true,
   "packageManager": "pnpm@10.24.0",
   "scripts": {
+    "test:fiscal": "node scripts/test-fiscal.mjs",
+    "test:fiscal:integration": "node scripts/test-fiscal.mjs --integration",
+    "test:e2e:fiscal": "playwright test --config playwright.fiscal.config.ts",
     "dev": "next dev --webpack",
     "build": "next build && node scripts/check-dynamic-chunks.mjs --repair",
     "start": "next start",
@@ -106,6 +109,7 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/fontkit": "^2.0.9",
     "@types/node": "^22.20.1",
@@ -117,6 +121,7 @@
     "@types/web-push": "^3.6.4",
     "eslint": "^9.39.5",
     "eslint-config-next": "16.3.6",
+    "mongodb-memory-server": "^11.3.0",
     "postcss": "^8.5.28",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.13",
