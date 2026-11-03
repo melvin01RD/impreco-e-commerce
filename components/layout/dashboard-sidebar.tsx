@@ -460,6 +460,11 @@ const adminNavGroups: {
             href: "/admin/finance/reports",
             icon: "FileText",
           },
+          {
+            label: "Facturación DGII",
+            href: "/admin/fiscal",
+            icon: "FileText",
+          },
         ],
       },
       // ── Grow (sales-driving tools) ────────────
