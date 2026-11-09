@@ -1,59 +1,87 @@
-# Verificación y preparación de QA
+# QA — IMP-FE-015 Facturador Gratuito
 
-Fecha: 2026-11-01. No se emitió ningún comprobante ni se utilizó Atlas/credenciales reales en pruebas. Rama de entrega `DGII-electronic-invoicing`; destino de revisión `qa`, sin PR ni merge autorizado.
+## DEV ?nico e aislamiento l?gico (IMP-INFRA-016)
 
-## Comandos reproducibles
+Todas las pruebas usan la configuraci?n DEV de `.env`, la base existente
+`storify_catalina_dev` y la aplicaci?n en `http://localhost:3000`.
+No hay bases temporales, MongoDB adicional, `.env.qa` ni simulador S3 requerido.
+Las reglas fiscales y sus aserciones de integridad no cambian.
+
+- `pnpm test:fiscal`: unitarias sin conexi?n a servicios.
+- `pnpm test:fiscal:integration`: modelos con colecciones prefijadas por UUID
+  en DEV. Transacciones, unicidad y rollback reales; limpieza solo de esas
+  colecciones. Nunca se elimina la base ni se consultan modelos comerciales reales.
+- `pnpm test:e2e`: tres comprobaciones de acceso/sesi?n sin fixtures.
+- `pnpm test:e2e:fiscal`: los nueve casos completos contra DEV, con cuentas,
+  pedidos y referencias sint?ticos distintos para cada ejecuci?n. Conserva PDF,
+  permisos, CSRF, evidencia, inmutabilidad, idempotencia, duplicados y concurrencia.
+- `pnpm test:report`: reporte HTML. La suite fiscal desactiva trazas para no
+  guardar URLs firmadas de almacenamiento ni datos ajenos del DEV compartido.
+
+Los E2E fiscales requieren DEV instalado, ?ndices ?nicos fiscales y bucket
+privado existente y separado. El setup falla antes de sembrar si falta algo;
+no instala, crea buckets ni modifica settings. Use Chrome instalado con
+`$env:PLAYWRIGHT_CHANNEL='chrome'` o el Chromium que ya tenga Playwright.
+Reinicie el servidor despu?s de editar `.env`. El login usa cuentas aleatorias
+sembradas en DEV, nunca contrase?as administrativas reales.
+
+La limpieza valida manifiesto, IDs, marcador de ejecuci?n, emisor sint?tico y
+propietario del expediente antes de borrar sus datos. Tambi?n compara el pedido
+sint?tico completo con su hash inicial para detectar escrituras comerciales.
+No borra contadores compartidos de rate limit: expiran por la pol?tica existente.
+No se emite, numera ni consulta un comprobante real de DGII.
+
+Si se interrumpe el proceso, conserve `.fiscal-test-runs/` (ignorado por Git).
+Para una integraci?n, use `node scripts/cleanup-fiscal-integration.mjs <run-id>`:
+solo acepta las colecciones prefijadas del manifiesto de esa ejecuci?n.
+Para E2E, seleccione el ID exacto del manifiesto y ejecute:
 
 ```powershell
-corepack pnpm install --frozen-lockfile
-corepack pnpm test:fiscal
-corepack pnpm test:fiscal:integration
-corepack pnpm test:e2e:fiscal
-node --max-old-space-size=6144 node_modules/typescript/bin/tsc --noEmit
-corepack pnpm lint
-node scripts/fiscal-qa-server.mjs build
-$env:NEXT_DIST_DIR='.next-fiscal-build'
-node scripts/check-dynamic-chunks.mjs
+$env:FISCAL_E2E_RUN_ID = 'ID_HEXADECIMAL_DE_32_CARACTERES_DEL_MANIFIESTO'
+node --import ./scripts/lib/load-dev-env.mjs --require ./scripts/lib/finance-cli.cjs --import tsx scripts/fiscal-dev-fixtures.ts cleanup
 ```
 
-Corepack usa pnpm 10.24.0. `pnpm` sin Corepack no está en PATH de este equipo. En una instalación con pnpm disponible pueden ejecutarse los scripts habituales directamente.
+No elimine manualmente colecciones compartidas ni use un borrado global. Si una
+carga fue confirmada por almacenamiento pero no qued? registrada como evidencia,
+puede requerir revisi?n del prefijo del expediente sint?tico; no se borran objetos
+sin procedencia verificable. Cierre cualquier sesi?n de prueba abierta.
 
-La suite unitaria usa `node:test` con TypeScript mediante tsx y el adaptador CLI existente para módulos server-only. La integración crea una réplica temporal MongoDB 8.0.17 y no lee `.env`. La primera ejecución descarga el binario oficial en `node_modules/.cache/mongodb-binaries`.
+## Comandos sin pnpm en PATH
 
-Playwright Test usa TypeScript y pruebas HTTP reales contra Next y Better Auth. El servidor de prueba crea otra réplica temporal, usuarios sintéticos y un secreto efímero; limpia las claves de configuración locales del entorno hijo antes de que Next procese dotenv. No usa cuentas reales ni servicios de pago. Puerto exclusivo 3197, sin reutilizar servidores existentes. En Windows restringido puede requerir autorización de procesos para que Playwright cierre el árbol de Next al finalizar.
+```powershell
+node scripts/check-mongodb.mjs
+node scripts/test-fiscal.mjs
+node scripts/test-fiscal.mjs --integration
+node node_modules/@playwright/test/cli.js test
+node node_modules/@playwright/test/cli.js test --config playwright.fiscal.config.ts
+node --max-old-space-size=6144 node_modules/typescript/bin/tsc --noEmit --incremental false
+node node_modules/@playwright/test/cli.js show-report
+```
 
-El build aislado ejecuta `next build --webpack` con dos workers en `.next-fiscal-build`, usando base temporal y configuración sin servicios externos. Es una compilación de producción local, no un despliegue. El script normal `pnpm build` usa otro bundler y no se ejecutó como tal. La validación de chunks se ejecuta por separado. La configuración preexistente de Next omite TypeScript durante build; por eso se ejecuta `tsc` aparte.
+El antiguo `scripts/fiscal-qa-server.mjs` es un alias de compatibilidad para
+`scripts/fiscal-dev-server.mjs`; ya no levanta servicios ni siembra datos.
+Su c?digo local anterior se conserv? en un respaldo ignorado en
+`.fiscal-test-runs/IMP-INFRA-016-original-fiscal-qa-server.mjs.bak`.
 
-## Resultados comprobados
+## Cobertura
+- Pruebas originales de tipos/orígenes, estados de transmisión legacy, cálculo exacto, descuentos, snapshots, PDF comercial y bloqueo de emisión.
+- Contrato manual: montos, moneda, descuento/envío, fechas, tipos, E33, evidencia, estado oficial independiente y reconciliación.
+- MongoDB: preparaciones concurrentes idempotentes, snapshots inmutables, reservas únicas, UUID repetido/conflictivo, evidencia de otro expediente, versiones simultáneas, discrepancia de montos, captura/corrección/revisión, E31 y E33 válidos, rollback ante fallo de auditoría y pedido completo sin cambios.
+- API: anónimo/cliente/admin, Origin, cuerpo estricto, MIME/firma/tamaño, evidencia ajena, duplicados, carreras, descarga privada y replay.
+- Navegador: cargar pedido, clasificar, preparar, adjuntar evidencia, registrar e-CF, comprobar pendiente pese a ACEPTADO, revisar manualmente, conciliar y marcar corrección.
+- Regresión de dos descargas de PDF comercial sin producir factura fiscal.
 
-| Verificación | Resultado |
-| --- | --- |
-| Unitarias | 19/19 aprobadas |
-| Integración replica set | Aprobada: índices, concurrencia, inmutabilidad, rollback, idempotencia, reserva E34, E33 y orígenes E41/E43/E45 |
-| TypeScript completo | Aprobado con heap 6144 MiB |
-| Lint completo | Aprobado tras corrección de importaciones según reglas del repositorio |
-| Build aislado webpack | Aprobado; 294 páginas estáticas generadas |
-| Chunks del build | Aprobado; sin referencias faltantes reportadas |
-| Playwright | 6/6 aprobadas en 1,2 minutos: anónimo, cliente, administrador, filtros/página, métodos GET sin escritura y dos descargas reales de PDF sin emisión fiscal |
+## Resultados hist?ricos de IMP-FE-015 (antes de IMP-INFRA-016)
+Resultados consolidados en el [reporte de entrega](IMP-FE-015-delivery.md). Unitarias 26/26, integraciones 2/2, Playwright 9/9, TypeScript y ESLint completos aprobados. Build aislado webpack aprobado con salida 0 y 296 páginas generadas; avisos de qz-tray/lna y caché next-intl detallados en el reporte. No se ejecutó el build predeterminado Turbopack. TypeScript volvió a pasar después del build con tsconfig restaurado.
 
-Advertencias del build: dependencia opcional `lna` de `qz-tray` no resuelta; avisos de caché webpack/next-intl. No son errores fiscales, pero deben revisarse para impresión POS. No se afirma que el build sustituyó el chequeo TypeScript.
+Línea base antes de editar: 19/19 unitarias aprobadas. Durante implementación: 26/26 unitarias y 2 integraciones aprobadas; se amplió la integración para E31/E33/rollback. Un caso de prueba inicialmente usaba un número de longitud válida como ejemplo inválido; se corrigió el fixture, sin relajar el esquema.
 
-Prueba inicial MongoDB descubrió la omisión silenciosa de cambios inmutables de Mongoose; corregida con guards explícitos, y reejecutada con éxito. El primer TypeScript agotó el heap original; aprobado con memoria ampliada. Un intento de TypeScript coincidió con reinstalación de enlaces pnpm y falló en el launcher Windows; la comprobación directa posterior pasó.
+Incidencias intermedias Playwright: fallo de título por codificación al escribir un archivo, Chromium no instalado, selectores de select y tiempo insuficiente en primera navegación al detalle. Se corrigieron título/selectores y se comprobó explícitamente el POST antes de esperar la carga del detalle (hasta 30 segundos por compilación inicial). Se utilizó Chrome instalado. La ejecución simultánea de chequeos grandes provocó un timeout API; se repitió sin esa carga. Una caché de Next interrumpida produjo un error transitorio de runtime webpack; se eliminó únicamente el directorio generado y se repitió con caché limpia: 9/9 aprobadas en 2,8 minutos. Queda un warning de dependencias dinámicas de caché de next-intl, sin fallo de prueba. Windows requirió permiso fuera del sandbox para cerrar el árbol del servidor temporal; no se conectó Atlas.
 
-La prueba HTTP de página detectó redirección recursiva al escuchar Next en `127.0.0.1` y reescribir a `localhost`. Se alinearon servidor, baseURL y origen en `localhost`; las seis pruebas pasaron sin cambiar `proxy.ts`. La instrumentación temporal fue retirada. Una prueba diagnóstica contra `next start` no llegó a ejecutar la suite por conexión fallida a su base temporal; no se cuenta como validación del servidor de producción. El resultado E2E final corresponde a Next dev y el build se verificó por separado.
-
-## Límites de la evidencia
-
-Los tests del cálculo comercial y del constructor PDF prueban casos específicos. Playwright sí descargó dos PDFs reales y verificó formato/contenido binario básico y ausencia de emisión. No se ejecutó una compra completa con pago/inventario ni se certificó un flujo fiscal completo. No se validaron visualmente los PDFs ni la interfaz en un navegador disponible. Las pruebas HTTP de página no sustituyen verificación visual. No hay fixtures contractuales Medasoft aprobados ni emisiones Sandbox.
-
-## Preparación para QA
-
-1. Revisar los commits y `traceability.md`; aceptar explícitamente el alcance parcial y bloqueos antes de integrar a `qa`.
-2. Provisionar una BD QA replica set aislada. No apuntar pruebas a Atlas productivo. Configurar autenticación de QA con secreto propio.
-3. Revisar índices sin escribir: `corepack pnpm exec tsx scripts/prepare-fiscal-indexes.ts`.
-4. Con variables QA suministradas al proceso, ejecutar `corepack pnpm exec tsx scripts/prepare-fiscal-indexes.ts --apply`. Solo crea índices, no elimina índices/datos. No se ejecutó contra QA durante esta entrega.
-5. Ejecutar las verificaciones anteriores. Iniciar el app en QA con el procedimiento habitual del repositorio; no habilitar emisión ni cron fiscal.
-6. Como administrador, abrir `/admin/fiscal`: siete tipos no habilitados, filtros y trazabilidad. Comprobar 401 anónimo y 403 cliente para las rutas fiscales.
-7. Validar con el proveedor contrato/numeración/reconciliación, emisor y clasificación; implementar los pendientes de cada ticket y ejecutar certificación Sandbox antes de habilitar cualquier tipo.
-
-Reversión de una integración QA: retirar las rutas/puentes fiscales mediante revisión de código; conservar colecciones/evidencia fiscal. No borrar documentos para resolver duplicados. Producción requiere todos los pendientes de `traceability.md`, reglas/retención aprobadas, RI/XML, permisos operativos y regresión integral.
+## Revisión operativa posterior (no realizada)
+1. Revisar cambios e índices nuevos. No hacer push/merge automático.
+2. Operador autorizado revisa los índices necesarios en DEV y las ACL del bucket privado. No ejecutar cambios sobre datos reales como parte del diagnóstico. No requiere una base QA separada.
+3. Responsable fiscal revisa clasificación, moneda/identidad de pedidos y selección del emisor, especialmente en ventas multivendedor.
+4. Con un comprobante oficial real ya emitido en DGII, comprobar transcripción/evidencia/revisión. Nunca usar datos de pruebas como números oficiales.
+5. Verificar política de retención, backups y acceso por rol. Los archivos no pasan por antivirus y el origen no se autentica criptográficamente.
+6. No declarar integración ni emisión DGII completada: este es un flujo manual, sin comunicación con DGII.

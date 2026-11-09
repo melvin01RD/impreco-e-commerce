@@ -1,47 +1,20 @@
 import { setRequestLocale } from "next-intl/server";
-import Link from "@/components/language/link";
-import { connectDB } from "@/lib/db";
 import { requireAdminPageAccess } from "@/lib/access/admin-page-guard";
+import { connectDB } from "@/lib/db";
+import { FiscalCase } from "@/models/fiscal-case.model";
 import { localeHref } from "@/lib/i18n/locale-routing";
-import { fiscalCapabilities, fiscalListSchema, listFiscalDocuments } from "@/lib/fiscal/services/queries";
-import { FISCAL_STATES } from "@/models/fiscal-invoice.model";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-export default async function FiscalPage({ params, searchParams }: {
-  params: Promise<{ locale: string }>;
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
+import { ManualWorkbench } from "@/components/admin/fiscal/manual-workbench";
+export default async function FiscalPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   setRequestLocale(locale);
   await requireAdminPageAccess(locale);
-  const raw = await searchParams;
-  const parsed = fiscalListSchema.safeParse(Object.fromEntries(Object.entries(raw).filter(([, value]) => value !== "")));
-  const capabilities = fiscalCapabilities();
-  if (!parsed.success) return <p role="alert">Los filtros fiscales no son válidos. <Link href={await localeHref(locale, "/admin/fiscal")}>Limpiar filtros</Link></p>;
   await connectDB();
-  const data = await listFiscalDocuments(parsed.data);
-  const pageHref = async (page: number) => {
-    const query = new URLSearchParams({ ...parsed.data, page: String(page) } as Record<string, string>);
-    return `${await localeHref(locale, "/admin/fiscal")}?${query}`;
-  };
-  return <div className="space-y-6">
-    <div><h1 className="text-2xl font-semibold">Facturación electrónica DGII</h1><p className="text-sm text-muted-foreground">Comprobantes, estados y trazabilidad de IMPRECO.</p></div>
-    <Card><CardHeader><CardTitle>Emisión pendiente de habilitación</CardTitle></CardHeader><CardContent className="space-y-3">
-      <p>Los comprobantes aún no están habilitados. La validación con Medasoft y la autorización fiscal deben completarse antes de emitir.</p>
-      <p className="text-sm text-muted-foreground">Un pedido pagado y su PDF comercial no acreditan aceptación de la DGII.</p>
-      <ul className="grid gap-2 md:grid-cols-2">{capabilities.types.map(item => <li key={item.type} className="rounded-md border p-3 text-sm"><strong>{item.type}</strong> · {item.name}<span className="block text-muted-foreground">No habilitado</span></li>)}</ul>
-    </CardContent></Card>
-    <form className="flex flex-wrap items-end gap-3" method="get">
-      <label className="grid gap-1 text-sm">Pedido o e-NCF<input name="search" defaultValue={parsed.data.search} maxLength={120} placeholder="Referencia exacta" className="rounded-md border bg-background px-3 py-2" /></label>
-      <label className="grid gap-1 text-sm">Tipo<select name="type" defaultValue={parsed.data.type ?? ""} className="rounded-md border bg-background px-3 py-2"><option value="">Todos</option>{capabilities.types.map(item => <option key={item.type}>{item.type}</option>)}</select></label>
-      <label className="grid gap-1 text-sm">Estado fiscal<select name="status" defaultValue={parsed.data.status ?? ""} className="rounded-md border bg-background px-3 py-2"><option value="">Todos</option>{FISCAL_STATES.map(status => <option key={status}>{status}</option>)}</select></label>
-      <label className="grid gap-1 text-sm">Ambiente<select name="environment" defaultValue={parsed.data.environment} className="rounded-md border bg-background px-3 py-2"><option value="sandbox">Sandbox</option><option value="production">Producción</option></select></label>
-      <button className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground">Filtrar</button>
-    </form>
-    <div className="overflow-x-auto rounded-lg border"><table className="w-full text-left text-sm"><thead><tr className="border-b bg-muted"><th className="p-3">Origen</th><th>Tipo</th><th>e-NCF</th><th>Transmisión</th><th>Estado fiscal</th><th>Error</th></tr></thead><tbody>
-      {data.documents.map(async document => <tr key={document.id} className="border-b"><td className="p-3"><Link className="underline" href={await localeHref(locale, `/admin/fiscal/${document.id}`)}>{document.sourceReference}</Link></td><td>{document.type}</td><td>{document.encf ?? "Sin asignar"}</td><td>{document.transmission}</td><td>{document.fiscalStatus}</td><td>{document.errorCode ?? "—"}</td></tr>)}
-      {!data.documents.length && <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">No hay comprobantes para estos filtros.</td></tr>}
-    </tbody></table></div>
-    <nav aria-label="Paginación fiscal" className="flex gap-4 text-sm">{data.page > 1 && <Link href={await pageHref(data.page - 1)}>Anterior</Link>}<span>Página {data.page}</span>{data.hasNext && data.page < 1000 && <Link href={await pageHref(data.page + 1)}>Siguiente</Link>}</nav>
+  const rows = await FiscalCase.find().sort({ createdAt: -1, _id: -1 }).limit(25).lean();
+  const basePath = await localeHref(locale, "/admin/fiscal");
+  return <div className="space-y-6"><h1 className="text-2xl font-semibold">Facturación electrónica DGII · Facturador Gratuito</h1>
+    <p>IMPRECO prepara el expediente comercial. La emisión se realiza manualmente en el Facturador Gratuito oficial. No existe envío ni consulta automática desde este flujo.</p>
+    <p>Registrar un número no acredita aceptación. La conciliación documenta una revisión humana de evidencia oficial; no es una certificación de IMPRECO.</p>
+    <ManualWorkbench initial={JSON.parse(JSON.stringify(rows))} basePath={basePath} />
+    <a className="underline" href={basePath + "/legacy"}>Consultar registros fiscales anteriores (solo lectura)</a>
   </div>;
 }

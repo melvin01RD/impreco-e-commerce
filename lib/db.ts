@@ -143,9 +143,10 @@ export async function connectDB(): Promise<typeof mongoose> {
       autoIndex: process.env.MONGODB_AUTO_INDEX !== "false",
     };
 
-    if (!MONGODB_URI) {
+    const uriHost = (MONGODB_URI || "").replace(/^mongodb(?:\+srv)?:\/\//, "").split(/[/?]/)[0].split("@").pop() || "";
+    if (!MONGODB_URI || /[<>]/.test(MONGODB_URI) || /(?:^|[.,])(?:x{3,}|example|cluster-host|placeholder|your-cluster)(?=[.:,]|$)|\.invalid(?=[:,]|$)/i.test(uriHost)) {
       throw new Error(
-        "Please define the MONGODB_URI environment variable inside .env"
+        "Define a valid MONGODB_URI without placeholders in .env"
       );
     }
 
@@ -178,10 +179,11 @@ export async function connectDB(): Promise<typeof mongoose> {
 
   try {
     cached.conn = await cached.promise;
-  } catch (error) {
+  } catch {
     cached.promise = null;
-    console.error("MongoDB connection error:", error);
-    throw error;
+    // Driver errors can contain connection details; do not propagate them to logs.
+    console.error("MongoDB connection failed. Check URI, database permissions and Atlas network access.");
+    throw new Error("MongoDB connection failed. Check the local configuration with pnpm db:check.");
   }
 
   return cached.conn;

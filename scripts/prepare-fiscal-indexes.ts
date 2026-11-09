@@ -3,9 +3,10 @@ import { FiscalInvoice } from "@/models/fiscal-invoice.model";
 import { FiscalEvent } from "@/models/fiscal-event.model";
 import { FiscalOutbox } from "@/models/fiscal-outbox.model";
 import { FiscalSettings } from "@/models/fiscal-settings.model";
+import { FiscalCase, FiscalCaseEvent, FiscalOfficialClaim, FiscalEvidence } from "@/models/fiscal-case.model";
 
 async function main() {
-  const models = [FiscalInvoice, FiscalEvent, FiscalOutbox, FiscalSettings];
+  const models = [FiscalInvoice, FiscalEvent, FiscalOutbox, FiscalSettings, FiscalCase, FiscalCaseEvent, FiscalOfficialClaim, FiscalEvidence];
   if (!process.argv.includes("--apply")) {
     for (const model of models) console.log(model.modelName, JSON.stringify(model.schema.indexes()));
     return;

@@ -2,6 +2,7 @@ import "server-only";
 import { FiscalError } from "../../core/fiscal-errors";
 import type { FiscalProvider, ProviderResult } from "../fiscal-provider.interface";
 import { companyResponseSchema, loginResponseSchema } from "./schemas";
+import { medasoftNetworkEnabled } from "../mode";
 
 type SandboxConfig = { apiKey: string; apiSecret: string; issuerTaxId: string; timeoutMs: number };
 
@@ -15,6 +16,7 @@ export class MedasoftSandboxProvider implements FiscalProvider {
   }
 
   private async request(path: "/login" | "/company/me", init: RequestInit) {
+    if (!medasoftNetworkEnabled()) throw new FiscalError("PROVIDER_UNVERIFIED");
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.config.timeoutMs);
     try {

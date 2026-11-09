@@ -6,9 +6,11 @@ import { FiscalOutbox } from "@/models/fiscal-outbox.model";
 import { FiscalError } from "../core/fiscal-errors";
 import { transitionFiscal, type FiscalAction } from "../core/state-machine";
 import type { ProviderResult } from "../providers/fiscal-provider.interface";
+import { medasoftNetworkEnabled } from "../providers/mode";
 
 /** Optimistic state update and audit share one transaction; stale workers cannot overwrite. */
 export async function recordFiscalTransition(invoiceId: string, expectedVersion: number, action: FiscalAction, actorId: string, result?: ProviderResult) {
+  if (!medasoftNetworkEnabled()) throw new FiscalError("ISSUANCE_BLOCKED");
   if (!actorId.trim() || actorId.length > 120) throw new FiscalError("INVALID_ORIGIN");
   return runTransaction("fiscal.transition", async session => {
     const invoice = await FiscalInvoice.findOne({ _id: invoiceId, version: expectedVersion }).session(session);

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import mongoose from "mongoose";
-import { MongoMemoryReplSet } from "mongodb-memory-server";
+import { connectFiscalDevSandbox } from "../../scripts/lib/fiscal-dev-isolation.mjs";
 import { FiscalInvoice } from "../../models/fiscal-invoice.model";
 import { FiscalEvent } from "../../models/fiscal-event.model";
 import { FiscalOutbox } from "../../models/fiscal-outbox.model";
@@ -10,11 +10,9 @@ import { fixture } from "./fixtures";
 import { prepareFiscalDraft, requestFiscalIssuance } from "../../lib/fiscal/services/issuance";
 import { recordFiscalTransition } from "../../lib/fiscal/services/fiscal-audit";
 
-test("isolated replica set enforces uniqueness, immutable snapshot and transactional rollback", { timeout: 180000 }, async () => {
-  // Explicitly created ephemeral replica set; never reads MONGODB_URI or dotenv.
-  const replica = await MongoMemoryReplSet.create({ replSet: { count: 1 }, binary: { version: "8.0.17", downloadDir: "node_modules/.cache/mongodb-binaries" } });
+test("DEV run-owned collections enforce uniqueness, immutable snapshot and transactional rollback", { timeout: 180000 }, async () => {
+  const sandbox = await connectFiscalDevSandbox();
   try {
-    await mongoose.connect(replica.getUri(), { dbName: "fiscal_integration" });
     await Promise.all([FiscalInvoice.init(), FiscalEvent.init(), FiscalOutbox.init()]);
     const snapshot = serializeSnapshot(fixture());
     const input = { environment: "sandbox", issuerTaxId: "000000000", type: "E32", sourceKind: "order", sourceId: "synthetic-order", sourceReference: "TEST-001", operationKey: "sale:synthetic-order", snapshotJson: snapshot.json, snapshotHash: snapshot.hash } as const;
@@ -48,6 +46,8 @@ test("isolated replica set enforces uniqueness, immutable snapshot and transacti
     // Simulated provider evidence, only in this isolated test database.
     await FiscalInvoice.updateOne({ _id: original._id }, { $set: { transmission: "sending" } });
     const result = { encf: "E320000000001", providerId: "synthetic-track", status: "accepted" as const };
+    process.env.FISCAL_PROVIDER_MODE = "medasoft-sandbox";
+    process.env.FISCAL_MEDASOFT_NETWORK = "true";
     await recordFiscalTransition(String(original._id), 0, { kind: "result", status: "accepted" }, "mock-provider", result);
     await assert.rejects(recordFiscalTransition(String(original._id), 0, { kind: "unknown" }, "stale-worker"), /CONCURRENT_OPERATION/);
 
@@ -71,5 +71,5 @@ test("isolated replica set enforces uniqueness, immutable snapshot and transacti
       assert.equal(document.type, type);
       await assert.rejects(requestFiscalIssuance(String(document._id)), /ISSUANCE_BLOCKED/);
     }
-  } finally { await mongoose.disconnect(); await replica.stop(); }
+  } finally { await sandbox.close(); }
 });

@@ -1,7 +1,22 @@
-import { test } from "node:test";
+import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { parseMedasoftResult } from "../../lib/fiscal/providers/medasoft/mapper";
 import { MedasoftSandboxProvider } from "../../lib/fiscal/providers/medasoft/client";
+const originalMode = process.env.FISCAL_PROVIDER_MODE;
+const originalNetwork = process.env.FISCAL_MEDASOFT_NETWORK;
+beforeEach(() => { process.env.FISCAL_PROVIDER_MODE = "medasoft-sandbox"; process.env.FISCAL_MEDASOFT_NETWORK = "true"; });
+afterEach(() => {
+  if (originalMode === undefined) delete process.env.FISCAL_PROVIDER_MODE; else process.env.FISCAL_PROVIDER_MODE = originalMode;
+  if (originalNetwork === undefined) delete process.env.FISCAL_MEDASOFT_NETWORK; else process.env.FISCAL_MEDASOFT_NETWORK = originalNetwork;
+});
+
+test("credentials alone cannot enable Medasoft network", async () => {
+  delete process.env.FISCAL_PROVIDER_MODE;
+  let calls = 0;
+  const provider = new MedasoftSandboxProvider({ apiKey: "synthetic", apiSecret: "synthetic", issuerTaxId: "000000000", timeoutMs: 50 }, async () => { calls++; return Response.json({}); });
+  await assert.rejects(provider.verifySandbox(), /PROVIDER_UNVERIFIED/);
+  assert.equal(calls, 0);
+});
 
 const config = { apiKey: "synthetic", apiSecret: "synthetic-secret", issuerTaxId: "000000000", timeoutMs: 50 };
 const receipt = { encf: "E320000000001", trackId: "test", estado: "Aceptado", codigo: "1", secuenciaUtilizada: true };

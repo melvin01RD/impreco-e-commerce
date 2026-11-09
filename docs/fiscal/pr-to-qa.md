@@ -1,5 +1,9 @@
 # Propuesta de PR — no creado
 
+Nota IMP-INFRA-016: este documento conserva una propuesta histórica de ramas.
+No exige infraestructura local QA. El flujo vigente usa DEV según README.md;
+la referencia a BD QA al final ya no aplica. No se ha abierto ni publicado un PR.
+
 Base: `qa`. Head: `DGII-electronic-invoicing`.
 
 Título: `IMP-FE: base fiscal auditable y consulta administrativa con emisión bloqueada`

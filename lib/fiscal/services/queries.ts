@@ -14,7 +14,8 @@ export const fiscalListSchema = z.object({
 
 export function fiscalCapabilities() {
   return {
-    issuanceEnabled: false, reconciliationEnabled: false, blocker: "PROVIDER_UNVERIFIED",
+    issuanceEnabled: false, reconciliationEnabled: true, manualCaptureEnabled: true,
+    mode: "DGII_FREE_MANUAL", automaticVerificationEnabled: false, blocker: "AUTOMATIC_ISSUANCE_DISABLED",
     types: DOCUMENT_TYPES.map(type => ({ type, ...DOCUMENT_CATALOG[type], enabled: false })),
   };
 }

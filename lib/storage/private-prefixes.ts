@@ -12,6 +12,7 @@ export const BIZ_PRIVATE_UPLOAD_PREFIX = "biz-private/";
  * `db:migrate private-storage` finds the private files in a shared bucket.
  */
 export const PRIVATE_STORAGE_PREFIXES: readonly string[] = [
+  "fiscal-evidence/",
   DIGITAL_ASSET_KEY_ROOT,
   VENDOR_DOCUMENT_KEY_PREFIX,
   EXPENSE_RECEIPT_KEY_PREFIX,
