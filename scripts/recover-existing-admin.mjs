@@ -2,10 +2,11 @@ import { MongoClient } from "mongodb";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { isDeepStrictEqual } from "node:util";
 import { loadDevEnv } from "./lib/dev-env.mjs";
-import { hiddenInput } from "./lib/hidden-input.mjs";
+import { createInteractiveInput } from "./lib/hidden-input.mjs";
 import { createLocalRecovery } from "./lib/local-auth-recovery.mjs";
 import { findAuthSecretProblem } from "../lib/auth/auth-secret.ts";
-import { normalizePasswordPolicy, checkPasswordPolicy } from "../lib/auth/password-policy.ts";
+import { normalizePasswordPolicy } from "../lib/auth/password-policy.ts";
+import { readValidatedPassword, passwordErrorMessages } from "./lib/recovery-password.mjs";
 
 const target = "melvin01rd@gmail.com";
 const expectedId = "6ad19767a6d56eabba338093";
@@ -22,7 +23,7 @@ if (!process.stdin.isTTY || !process.stdout.isTTY) {
 
 let client;
 let password;
-let confirmation;
+let terminalInput;
 let phase = "preflight (no writes)";
 try {
   const env = loadDevEnv();
@@ -43,18 +44,19 @@ try {
   if (credentials.length !== 1 || !isDeepStrictEqual(credentials[0].userId, user._id)) throw new Error();
   console.log(`Existing active admin: ${target}; ID ${user._id}; database storify_catalina_dev.`);
   console.log("STOP unless the owner's identity has been independently verified and the recovery authorized. This terminal confirmation is an attestation, not identity verification.");
-  const approval = await hiddenInput(`After verification, type AUTORIZO ${target}: `);
-  if (approval !== `AUTORIZO ${target}`) throw new Error();
+  phase = "authorization input (no writes)";
+  terminalInput = createInteractiveInput();
+  const approval = await terminalInput.ask(`After verification, type AUTORIZO ${target}: `, { hidden: false, ignoreEmpty: true });
+  if (approval !== `AUTORIZO ${target}`) throw new Error("AUTHORIZATION_NOT_CONFIRMED");
   const settings = await db.collection("settings").findOne({}, { projection: { security: 1 } });
   const policy = { ...normalizePasswordPolicy(settings?.security), requireUppercase: true, requireNumbers: true, requireSpecialChars: true };
   policy.minPasswordLength = Math.max(16, policy.minPasswordLength);
   console.log(`New unique password: ${policy.minPasswordLength}–128 characters, uppercase, number and special character. Input is hidden.`);
-  password = await hiddenInput("New password: ");
-  confirmation = await hiddenInput("Confirm password: ");
-  if (password !== confirmation || checkPasswordPolicy(password, policy) || password.toLowerCase().includes(target)) throw new Error();
-  confirmation = undefined;
+  password = await readValidatedPassword(terminalInput, policy, target, (next) => { phase = next; });
+  terminalInput.close();
 
   // Recheck identity/privileges immediately before mutation.
+  phase = "pre-mutation verification (no writes)";
   const projection = { _id: 1, email: 1, role: 1, roles: 1, permissions: 1, status: 1, emailVerified: 1, twoFactorEnabled: 1 };
   if (!isDeepStrictEqual(user, await db.collection("user").findOne({ _id: user._id }, { projection }))) throw new Error();
   phase = "invalidate previous recovery links";
@@ -75,11 +77,21 @@ try {
   const after = await db.collection("account").find({ userId: { $in: userIds }, providerId: "credential" }, { projection: { _id: 1, userId: 1 } }).toArray();
   if (!isDeepStrictEqual(credentials, after)) throw new Error();
   console.log("Password reset through Better Auth. Existing identity/roles/permissions preserved; all stored sessions revoked. Verify one browser login after correcting Preview origins.");
-} catch {
+} catch (error) {
+  const inputMessages = {
+    ...passwordErrorMessages,
+    INPUT_PENDING_DATA: "INPUT_PENDING_DATA: Unread terminal input was detected before the prompt. No input was discarded or accepted; rerun and type only after each prompt appears.",
+    INPUT_CLOSED: "Terminal input ended (EOF/closed). Open a new private PowerShell terminal and rerun; text entered after exit is not authorization.",
+    INPUT_CANCELLED: "Input cancelled. No authorization is inferred.",
+    INPUT_READ_FAILED: "Terminal input could not be read. Use private interactive PowerShell without pipes.",
+    LOCAL_TTY_REQUIRED: "A private interactive terminal is required.",
+    AUTHORIZATION_NOT_CONFIRMED: "The explicit authorization did not match. No authorization is inferred.",
+  };
+  if (Object.hasOwn(inputMessages, error?.message)) console.error(inputMessages[error.message]);
   console.error(`Recovery stopped during: ${phase}. Details suppressed to protect secrets. If mutation had begun, do not assume rollback or retry automatically; inspect the account/session state first.`);
   process.exitCode = 1;
 } finally {
+  terminalInput?.close();
   password = undefined;
-  confirmation = undefined;
   await client?.close();
 }
