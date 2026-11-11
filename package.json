@@ -4,7 +4,14 @@
   "private": true,
   "packageManager": "pnpm@10.24.0",
   "scripts": {
-    "dev": "next dev --webpack",
+    "check:env": "node scripts/check-mongodb.mjs --config-only",
+    "db:check": "node scripts/check-mongodb.mjs",
+    "test:e2e": "playwright test",
+    "test:report": "playwright show-report",
+    "test:fiscal": "node scripts/test-fiscal.mjs",
+    "test:fiscal:integration": "node scripts/test-fiscal.mjs --integration",
+    "test:e2e:fiscal": "playwright test --config playwright.fiscal.config.ts",
+    "dev": "node scripts/check-mongodb.mjs --config-only && next dev --webpack --port 3000",
     "build": "next build && node scripts/check-dynamic-chunks.mjs --repair",
     "start": "next start",
     "lint": "eslint --quiet",
@@ -106,6 +113,7 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/fontkit": "^2.0.9",
     "@types/node": "^22.20.1",

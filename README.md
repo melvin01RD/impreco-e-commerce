@@ -1,5 +1,55 @@
 # Storify — Multi-Vendor E-commerce Marketplace
 
+## IMPRECO: desarrollo local (IMP-INFRA-016)
+
+El MVP utiliza `.env`, la base Atlas existente `storify_catalina_dev` y
+`http://localhost:3000`. No necesita `.env.qa`, otro cluster ni un ambiente QA
+permanente. Esta guía prevalece sobre los ejemplos genéricos de instalación y
+seeding de esta plantilla. Producción conserva configuración y secretos separados.
+
+Configure `MONGODB_URI` con la URI real del cluster existente y la ruta
+`/storify_catalina_dev`; use `MONGODB_DB_NAME=storify_catalina_dev` para Mongoose
+y Better Auth. Conserve `BETTER_AUTH_SECRET` e `INSTALL_TOKEN` válidos.
+Use `BETTER_AUTH_URL=http://localhost:3000`,
+`NEXT_PUBLIC_APP_URL=http://localhost:3000`, `FISCAL_PROVIDER_MODE=dgii-free` y
+`FISCAL_MEDASOFT_NETWORK=false`. No sobrescriba un `.env` existente con la plantilla.
+Cada variable debe aparecer una sola vez.
+
+| Tarea | Comando |
+| --- | --- |
+| Diagnóstico sin mostrar secretos | `pnpm check:env` |
+| Lectura inocua de MongoDB | `pnpm db:check` |
+| Iniciar DEV | `pnpm dev` |
+| TypeScript | `pnpm typecheck` |
+| Playwright contra DEV | `pnpm test:e2e` |
+| Pruebas fiscales unitarias | `pnpm test:fiscal` |
+| Abrir reporte Playwright | `pnpm test:report` |
+
+Next carga `.env` automáticamente. Variables de la sesión y archivos
+`.env.development.local`, `.env.local` y `.env.development` pueden prevalecer;
+el diagnóstico usa el mismo cargador. Reinicie DEV tras cambiar variables.
+No registre URIs, contraseñas ni archivos `.env*` en Git, capturas o reportes.
+Ante `ENOTFOUND`, revise el host exacto de Atlas y DNS; después revise IP
+autorizada, usuario, contraseña codificada en URL y permisos de lectura.
+No cree otra base para resolver estos errores.
+
+Playwright cotidiano reutiliza DEV y comprueba protección fiscal, facturas y
+sesión anónima sin crear pedidos, inventario, usuarios ni expedientes.
+La regresi?n completa de nueve casos se ejecuta con `pnpm test:e2e:fiscal` sobre
+el mismo DEV. Crea usuarios `@fiscal-test.invalid` y pedidos `TEST-FISCAL-*`
+con identificadores ?nicos; un manifiesto local controla la limpieza de sus
+sesiones, documentos, auditor?a y evidencias. Requiere DEV ya instalado, ?ndices
+fiscales ?nicos y su bucket privado configurado. Nunca reemplaza settings.
+`pnpm test:fiscal:integration` usa colecciones con prefijo ?nico
+`__impreco_test_<run>_` dentro de la misma base DEV y elimina ?nicamente esas
+colecciones al finalizar. No se crean bases, clusters ni servidores MongoDB.
+Consulte [QA fiscal](docs/fiscal/qa.md) para recuperaci?n de ejecuciones interrumpidas.
+
+No use datos comerciales reales para pruebas destructivas. No ejecute
+`db:reset`, `db:full-reset`, seeding ni migraciones para probar conectividad.
+Las pruebas no emiten comprobantes reales. Sus usuarios, pedidos y documentos
+son sint?ticos; los registros comerciales y fiscales existentes no se limpian.
+
 Storify is a full-featured, multi-vendor e-commerce marketplace built with
 **Next.js 16**, **React 19**, **TypeScript**, **MongoDB/Mongoose**, and
 **Tailwind CSS**. It ships with a storefront, customer accounts, vendor
@@ -867,6 +917,22 @@ Routes are locale-prefixed (e.g. `/en/admin`, `/ar/admin`).
 - **Tooling:** ESLint
 
 ---
+
+## IMPRECO — Facturador Gratuito DGII (IMP-FE-015)
+
+En `/admin/fiscal`, los administradores preparan expedientes inmutables desde pedidos,
+adjuntan evidencia oficial y registran manualmente el e-CF emitido en DGII. La captura
+queda pendiente de verificación; conciliar requiere revisión humana documentada y
+coincidencia de identidad e importes. IMPRECO no emite, firma ni consulta automáticamente
+el Facturador Gratuito y no solicita credenciales o certificados DGII. Los pedidos,
+pagos, entregas e inventario conservan sus flujos existentes.
+
+Medasoft está aislado y sin red por defecto; sus prototipos no forman parte de esta
+operación manual. Consulte [el procedimiento fiscal](docs/fiscal/README.md),
+[la arquitectura](docs/fiscal/architecture.md), [QA](docs/fiscal/qa.md) y
+[los criterios y límites](docs/fiscal/traceability.md). La regresión completa usa
+MongoDB y almacenamiento simulado desechables. La suite DEV cotidiana comprueba
+acceso y sesión contra la aplicación local; no ejecuta esos fixtures.
 
 ## License
 
